@@ -1,0 +1,65 @@
+- name: Comprobar variables
+  hosts: clientes
+  tasks:
+  - debug: 
+      var: hostvars[inventory_hostname].ansible_enp0s8.macaddress
+
+- name: Configuración de servidores
+  hosts: servidores:!servidor3
+  pre_tasks:  
+    - name: Cargar las configuración adecuada para servidor1
+      include_vars: servidor1.yaml
+      when: inventory_hostname == "servidor1"
+    - name: Cargar la configuración adecuada para servidor2
+      include_vars: servidor2.yaml
+      when: inventory_hostname == "servidor2"  
+  roles:  
+  - role: ansible-role-dhcp
+    vars:    
+    dhcp_interfaces: enp0s9
+    dhcp_subnets:    
+    - ip: "{{ Red_interna }}"
+      netmask: "{{ Mask }}"
+      range_begin: "{{ Rango_dhcp_inicio }}"
+      range_end: "{{ Rango_dhcp_final }}"
+      routers: "{{ Gateway_dhcp }}"
+      domain_name_servers: "{{ Gateway_dhcp }}"
+      domain_search: "{{ Dominio }}"
+    dhcp_hosts:
+    - name: "{{ Cliente }}"
+      mac: "{{ Mac_cliente }}"
+      ip: "{{ IP_fija_dhcp }}" 
+    - name: "{{ Proxy }}"
+      mac: "{{ Mac_proxy }}"
+      ip: "{{ IP_proxy }}" 
+    become: yes
+    
+- name: Configuración de clientes
+  hosts: clientes:!servidor3
+  any_errors_fatal: true 
+  roles:
+  - role: ansible-netplan
+    become: yes
+    netplan_enabled: true
+    netplan_remove_existing: true
+    netplan_config_file: /etc/netplan/50-ansible.yaml   
+    netplan_renderer: networkd
+    netplan_configuration:
+      network:
+        version: 2
+        renderer: networkd
+        ethernets:
+          enp0s3:
+            dhcp4: true
+          enp0s8:
+            dhcp4: true
+            # Esto hay que hacerlo porque sino el gateway para el cliente (la ruta default) la establece con la misma métrica que la ruta
+            # default que establece automáticamente Vagrant para su interfaz NAT de administración, provocando que el routing funcione de forma
+            # extraña y aleatoria. De esta forma, la ruta default para el gateway queda por encima de la del NAT de Vagrant, asegurnado las rutas estáticas
+            dhcp4-overrides:
+              route-metric: 50
+    netplan_apply: true
+
+
+
+

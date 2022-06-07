@@ -1,0 +1,31 @@
+logging {
+    channel errors_syslog {
+          syslog daemon;
+          severity warning;
+        };
+// Per loggear totes les consultes DNS al servidor
+     channel queries_log {
+          file "/var/log/named/queries.log" versions 600 size 20m;
+          print-time yes;
+          print-category yes;
+          print-severity yes;
+          severity dynamic;
+        };
+//Per loggear tots els errors en realitzar consultes al servidor
+     channel query-errors_log {
+          file "/var/log/named/query-errors.log" versions 5 size 20m;
+          print-time yes;
+          print-category yes;
+          print-severity yes;
+          severity dynamic;
+        };
+//Definim les categories associades als channels
+        category lame-servers { null; };
+        category edns-disabled { null; };
+        category resolver { null; };
+        category dnssec { errors_syslog; };
+        category default { errors_syslog; default_debug; };
+        category unmatched { null; };
+        category queries { queries_log; };
+        category query-errors { query-errors_log; };
+};

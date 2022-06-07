@@ -1,0 +1,51 @@
+- hosts: servidor1
+  become: yes
+  pre_tasks:  
+    - name: Cargar las configuración adecuada para servidor1
+      include_vars: servidor1.yaml
+  tasks:
+    - name: Actualizar apt cache e instalar Nginx
+      apt:
+        name: nginx
+        state: latest
+        update_cache: yes
+
+    - name: Copiar los archivos del website al directorio raíz del servidor 
+      copy:
+        src: "{{ app_root }}"
+        dest: "{{ document_root }}"
+        mode: preserve
+
+    - name: Aplicar las plantillas de Nginx
+      template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/default
+      notify: Restart Nginx
+
+    - name: Habilitar el nuevo website
+      file:
+        src: /etc/nginx/sites-available/default
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+      notify: Restart Nginx
+    
+    - name: Crear usuarios para autenticación básica
+      become: true
+      shell: |   
+        usuarios="raul riesco"
+        pass=test 
+        true > /etc/nginx/.htpasswd
+        for usuario in $usuarios; do
+          printf "$usuario:$(openssl passwd -apr1 $pass)\n" >> /etc/nginx/.htpasswd         
+        done
+      args: 
+        executable: /bin/bash
+      when:
+        - basic_auth == true
+        - restr_IP == true
+
+  handlers:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted

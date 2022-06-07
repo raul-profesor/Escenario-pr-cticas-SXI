@@ -1,0 +1,128 @@
+# - name: Configuración del DNS
+#   hosts: servidor1
+#   become: true
+#   pre_tasks:  
+#       - name: Cargar las configuración adecuada para servidor1
+#         include_vars: servidor1.yaml
+#         when: inventory_hostname == "servidor1"
+#       - name: Cargar la configuración adecuada para servidor2
+#         include_vars: servidor2.yaml
+#         when: inventory_hostname == "servidor2" 
+#   roles:
+#     - role: ansible-role-bind
+
+- name: Configuración del DNS
+  hosts: servidores:!servidor3
+  become: true
+  pre_tasks:  
+      - name: Cargar las configuración adecuada para servidor1
+        include_vars: servidor1.yaml
+        when: inventory_hostname == "servidor1"
+
+      - name: Cargar la configuración adecuada para servidor2
+        include_vars: servidor2.yaml
+        when: inventory_hostname == "servidor2" 
+
+      - name: Parar relay
+        become: yes
+        systemd:
+          name: isc-dhcp-relay
+          state: stopped
+        when: ansible_hostname == 'servidor2'
+        
+      - name: Iniciar servidor DHCP
+        become: yes
+        systemd:
+          name: isc-dhcp-server
+          state: stopped
+        when: ansible_hostname == 'servidor2'
+  roles:
+    - role: ansible-role-bind
+  post_tasks:
+    - name: Copiar archivo named.conf.logging a la máquina
+      become: true
+      copy:
+        src: templates/named.conf.logging
+        dest: /etc/bind
+        owner: root
+        group: bind
+        mode: 0644
+
+    - name: Configurar el logging
+      become: true
+      shell: |   
+        mkdir /var/log/named
+        chmod 755 /var/log/named && chown bind $_
+        echo -e "\n include \"/etc/bind/named.conf.logging\";">>/etc/bind/named.conf 
+        files="queries.log query-errors-log"
+        for file in $files; do
+         touch /var/log/$file 
+         chown bind:bind /var/log/$file && chmod 444 $_         
+        done
+      args: 
+        executable: /bin/bash
+        
+    - name: Reiniciar servidor DNS
+      become: yes
+      systemd:
+        name: bind9
+        state: restarted
+
+- name: Solucionar problema de que systemd-resolve coloca localhost como DNS principal
+  hosts: clientes
+  become: true
+  tasks:
+  - args:
+      warn: false
+    shell: |        
+      rm -f /etc/resolv.conf
+      ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+      netplan apply
+
+- name: Configuración de servidor clon
+  hosts: servidor3
+  pre_tasks:  
+    - name: Cargar las IPs adecuadas para servidor3
+      include_vars: servidor3.yaml 
+  any_errors_fatal: true
+  roles:
+  - role: ansible-netplan
+    become: yes
+    netplan_enabled: true
+    netplan_remove_existing: true
+    netplan_config_file: /etc/netplan/50-ansible.yaml   
+    netplan_renderer: networkd
+    netplan_configuration:
+      network:
+        version: 2
+        renderer: networkd
+        ethernets:
+          enp0s3:
+            dhcp4: true
+          enp0s8:
+            dhcp4: true
+          enp0s9:
+            dhcp4: true
+            # Esto hay que hacerlo porque sino el gateway para el cliente (la ruta default) la establece con la misma métrica que la ruta
+            # default que establece automáticamente Vagrant para su interfaz NAT de administración, provocando que el routing funcione de forma
+            # extraña y aleatoria. De esta forma, la ruta default para el gateway queda por encima de la del NAT de Vagrant, asegurnado las rutas estáticas
+            dhcp4-overrides:
+              route-metric: 50
+    netplan_apply: true
+    #El servidor3 se crea con las 3 interfaces genéricas, igual que los otros dos, pero la LAN no nos hace falta ya que sólo estará en la red interna
+    notify: Desactivar interfaz LAN servidor3
+
+    handlers: 
+      - name: Desactivar interfaz LAN servidor3
+        become: true
+        shell:
+          ip link set enp0s8 down
+
+
+
+
+
+      
+      
+
+      

@@ -1,0 +1,110 @@
+- name: Configuración del DHCP para incluir al servidor2 (webserver2)
+  hosts: servidor1
+  become: yes
+  pre_tasks:  
+    - name: Cargar las configuración adecuada para servidor1
+      include_vars: servidor1.yaml
+    # - name: IPs nuevas para servidor2 (webserver2)
+    #   vars:
+    #     Webserver2: Webserver2
+    #     mac_ws2: "{{ hostvars['servidor2'].ansible_enp0s9.macaddress }}"
+    #     IP_ws2: "172.1.1.3" 
+  roles:  
+  - role: ansible-role-dhcp
+    vars:    
+    dhcp_interfaces: enp0s9
+    dhcp_subnets:    
+    - ip: "{{ Red_interna }}"
+      netmask: "{{ Mask }}"
+      range_begin: "{{ Rango_dhcp_inicio }}"
+      range_end: "{{ Rango_dhcp_final }}"
+      routers: "{{ Gateway_dhcp }}"
+      domain_name_servers: "{{ Gateway_dhcp }}"
+      domain_search: "{{ Dominio }}"
+    dhcp_hosts:
+    - name: "{{ Cliente }}"
+      mac: "{{ Mac_cliente }}"
+      ip: "{{ IP_fija_dhcp }}" 
+    - name: "{{ Proxy }}"
+      mac: "{{ Mac_proxy }}"
+      ip: "{{ IP_proxy }}" 
+    - name: "{{ Webserver2 }}"
+      mac: "{{ mac_ws2 }}"
+      ip: "{{ IP_ws2 }}"
+
+- hosts: servidor2
+  become: yes
+  pre_tasks:  
+    - name: Cargar las configuración adecuada para servidor2
+      include_vars: servidor2.yaml
+  tasks:
+
+    - name: Eliminar ruta por defecto para permitir acceso a internet por interfaz puente
+      hosts: servidor2
+      become: true
+      shell:
+        ip route del default 10.1.1.1
+
+    - name: Actualizar apt cache e instalar Nginx
+      apt:
+        name: nginx
+        state: latest
+        update_cache: yes
+
+    - name: Copiar los archivos del website al directorio raíz del servidor 
+      copy:
+        src: "{{ app_root }}"
+        dest: "{{ document_root }}"
+        mode: preserve
+    
+    - name: Aplicar las plantilla de configuración de Nginx
+      template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/default
+      notify: Restart Nginx
+
+    - name: Habilitar el nuevo website
+      file:
+        src: /etc/nginx/sites-available/defaul
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+      notify: Restart Nginx
+
+- hosts: servidor3
+  become: yes
+  pre_tasks:
+    - name: Cargar las configuración adecuada para servidor3
+      include_vars: servidor3.yaml
+  tasks:  
+    - name: Crear directorio nuevo website
+      shell: 
+        mkdir {{ document_root }}/{{ app_root }}
+      args: 
+        executable: /bin/bash
+
+    - name: Crear el index
+      template:
+      src: templates/index.html.j2
+      dest: "{{ document_root }}"  
+
+
+- hosts: servidores
+  tasks:
+  - name: Copiar los archivos del website al directorio raíz del servidor 
+    copy:
+      src: "{{ app_root }}"
+      dest: "{{ document_root_balanceo }}"
+      mode: preserve
+
+  - name: Aplicar las plantilla de configuración de Nginx
+  template:
+    src: templates/nginx.conf.j2
+    dest: /etc/nginx/sites-available/default
+  notify: Restart Nginx
+
+  - name: Habilitar el nuevo website
+  file:
+    src: /etc/nginx/sites-available/default
+    dest: /etc/nginx/sites-enabled/default
+    state: link
+  notify: Restart Nginx

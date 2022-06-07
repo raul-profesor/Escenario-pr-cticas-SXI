@@ -1,0 +1,88 @@
+# Prácticas de la 1 a la 2.1
+#==============================
+IP_pub: 192.168.18.224/24
+Red_dst: "10.1.1.0/24"
+GW: "192.168.18.225"
+IP_interna: "172.1.1.1/24"
+Red_interna: "172.1.1.0"
+Red_int_mask: "172.1.1.0/24"
+Mask: "255.255.255.0"
+Rango_dhcp_inicio: "172.1.1.3"
+Rango_dhcp_final: "172.1.1.10"
+Gateway_dhcp: "172.1.1.1"
+IP_fija_dhcp: "172.1.1.11"
+Cliente: "cliente1"
+Mac_cliente: "{{ hostvars['cliente1'].ansible_enp0s8.macaddress }}"
+Dominio: "raul.es"
+
+# Para pŕactica 4.3
+Proxy: proxy-server
+Mac_proxy: "{{ hostvars['servidor3'].ansible_enp0s9.macaddress }}"
+IP_proxy: "172.1.1.56"
+
+
+
+
+## Práctica 3.1 - https://github.com/bertvv/ansible-role-bind
+#=============================================================
+IP_fija_cliente: "172.1.1.11"
+Forwarders: ['208.67.222.222','1.1.1.1']
+
+bind_acls:
+  - name: confiables
+    match_list:
+      - "{{ Red_int_mask }}"
+      - "{{ GW }}"
+bind_listen_ipv4:
+  - "{{ Gateway_dhcp }}"
+  - "{{ IP_pub.split('/')[0] }}"
+bind_recursion: true
+bind_allow_recursion: ['confiables']
+bind_allow_query: [ 'confiables']
+bind_forwarders: "{{ Forwarders }}"
+bind_zones: 
+  - name: 'raul.es'
+    create_reverse_zones: true
+    primaries:
+      - "{{ Gateway_dhcp }}"
+    networks:
+      - '172.1.1'
+    name_servers: 
+      - dnsserver.raul.es.
+    hostmaster_email: admin
+    hosts:
+      - name: dnsserver
+        ip: "{{ Gateway_dhcp }}"
+        aliases:
+          - name: webserver1
+            type: CNAME
+      - name: cliXubuntu
+        ip: "{{ IP_fija_cliente }}"
+      - name: proxy-server
+        ip: "{{ IP_proxy }}"
+        aliases:
+          - name: jugador1
+            type: CNAME
+      - name: webserver2
+        ip: "{{ IP_ws2 }}"
+  - name: 'altea.es'
+    type: secondary
+    create_reverse_zones: true
+    primaries:
+      - "{{ GW }}"
+
+## Para la práctica 4.1
+#=======================
+port: 80
+server_name: webserver1
+document_root: /var/www
+app_root: jugador2
+basic_auth: true 
+restr_IP: true
+
+## Para la práctica 4.4
+#=======================
+Webserver2: Webserver2
+mac_ws2: "{{ hostvars['servidor2'].ansible_enp0s9.macaddress }}"
+IP_ws2: "172.1.1.3" 
+

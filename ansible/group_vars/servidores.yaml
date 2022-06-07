@@ -1,0 +1,63 @@
+# Práctica 2.2
+#==============
+
+#Servidor1
+IP_pub_serv1: 192.168.18.224/24
+Red_dst_serv1: "10.1.1.0/24"
+GW_serv1: "192.168.18.225"
+IP_interna_serv1: "172.1.1.1/24"
+Red_interna_serv1: "172.1.1.0"
+Mask_serv1: "255.255.255.0"
+Rango_dhcp_inicio_serv1: "172.1.1.3"
+Rango_dhcp_final_serv1: "172.1.1.10"
+Gateway_dhcp_serv1: "172.1.1.1"
+IP_fija_dhcp_serv1: "172.1.1.11"
+Dominio_1: "raul.es"
+#Cliente1 ip fija DHCP
+Cliente_serv1: "cliente1"
+Mac_cliente_serv1: "{{ hostvars['cliente1'].ansible_enp0s8.macaddress }}"
+
+#Servidor2
+IP_pub_serv2: 192.168.18.225/24
+Red_dst_serv2: "172.1.1.0/24"
+GW_serv2: "192.168.18.224"
+IP_interna_serv2: "10.1.1.1/24"
+Red_interna_serv2: "10.1.1.0"
+Mask_serv2: "255.255.255.0"
+Rango_dhcp_inicio_serv2: "10.1.1.3"
+Rango_dhcp_final_serv2: "10.1.1.10"
+Gateway_dhcp_serv2: "10.1.1.1"
+IP_fija_dhcp_serv2: "10.1.1.11"
+Dominio_2: "altea.es"
+#Cliente2 ip fija DHCP
+Cliente_serv2: "cliente2"
+Mac_cliente_serv2: "{{ hostvars['cliente2'].ansible_enp0s8.macaddress }}"
+#Cliente3 ip fija DHCP
+IP_fija_dhcp_cliente3: "172.1.1.22"
+Cliente3: "cliente3"
+Mac_cliente3: "{{ hostvars['cliente3'].ansible_enp0s8.macaddress }}"
+
+
+#Servidor3
+Cliente_serv3: "servidor3"
+Mac_serv3: "{{ hostvars['servidor3'].ansible_enp0s8.macaddress }}"
+IP_fija_dhcp_serv3: "172.1.1.56"
+
+
+
+#Red LAN (para el relay)
+Red_LAN: "192.168.18.0"
+Mask_LAN: "255.255.255.0"
+
+bind_query_log: yes
+
+
+# Para la práctica 4.4
+port_balanceo: 8080
+document_root_balanceo: balanceo
+
+
+
+
+
+

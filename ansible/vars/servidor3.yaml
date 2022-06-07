@@ -1,0 +1,48 @@
+# Prácticas de la 1 a la 2.1
+#==============================
+IP_pub: 192.168.18.226/24
+Red_dst: "10.1.1.0/24"
+GW: "192.168.18.225"
+IP_interna: "172.1.1.56/24"
+IP_s3: "172.1.1.56"
+Red_interna: "172.1.1.0"
+Red_int_mask: "172.1.1.0/24"
+Mask: "255.255.255.0"
+
+## Práctica 3.2 - https://github.com/bertvv/ansible-role-bind
+#=============================================================
+IP_fija_cliente: "172.1.1.11"
+Forwarders: ['208.67.222.222','1.1.1.1']
+
+bind_acls:
+  - name: confiables
+    match_list:
+      - "{{ Red_int_mask }}"
+# bind_zone_dir: /var/local
+bind_listen_ipv4:
+  - "{{ IP_s3 }}"
+bind_recursion: true
+bind_allow_recursion: ['confiables']
+bind_dnssec_validation: false
+bind_allow_query: ["{{ Red_int_mask }}"]
+bind_forwarders: "{{ Forwarders }}"
+bind_zones: 
+  - name: 'raul.es'
+  - type: secondary
+    create_reverse_zones: true
+    primaries:
+      - "{{ Gateway_dhcp }}"
+    networks:
+      - '172.1.1'
+
+## Para la práctica 4.1
+#=======================
+port: 80
+server_name: webserver2
+document_root: /var/www
+app_root: webserver2
+basic_auth: true 
+restr_IP: true
+
+
+

@@ -1,0 +1,82 @@
+- name: Configuración de servidores
+  hosts: servidores
+  pre_tasks:  
+    - name: Cargar las IPs adecuadas para servidor1
+      include_vars: servidor1.yaml
+      when: inventory_hostname == "servidor1"
+    - name: Cargar las IPs adecuadas para servidor2
+      include_vars: servidor2.yaml
+      when: inventory_hostname == "servidor2"    
+    - name: Cargar las IPs adecuadas para servidor3
+      include_vars: servidor3.yaml
+      when: inventory_hostname == "servidor3"   
+  any_errors_fatal: true
+  tasks:
+    - name: Activar bit de forwarding
+      become: true 
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: yes
+        state: present
+        reload: yes
+  roles:
+  - role: ansible-netplan
+    become: yes
+    netplan_enabled: true
+    netplan_remove_existing: true
+    netplan_apply: true
+    netplan_config_file: /etc/netplan/50-ansible.yaml   
+    netplan_renderer: networkd
+    netplan_configuration:
+      network:
+        version: 2
+        renderer: networkd
+        ethernets:
+          enp0s3:
+            dhcp4: true
+          enp0s8:
+            addresses:
+            - "{{ IP_pub }}"
+            routes:
+            - to: "{{ Red_dst }}"
+              via: "{{ GW }}" 
+          enp0s9:
+            addresses:
+            - "{{ IP_interna }}"
+
+- name: Configuración de clientes
+  hosts: clientes
+  any_errors_fatal: true
+  pre_tasks:
+  - name: Cargar las IPs adecuadas para cliente1
+    include_vars: cliente1.yaml
+    when: inventory_hostname == "cliente1"
+  - name: Cargar las IPs adecuadas para cliente2
+    include_vars: cliente2.yaml
+    when: inventory_hostname == "cliente2"
+  - name: Cargar las IPs adecuadas para cliente3
+    include_vars: cliente3.yaml
+    when: inventory_hostname == "cliente3"
+  roles:
+  - role: ansible-netplan
+    become: yes
+    netplan_enabled: true
+    netplan_remove_existing: true
+    netplan_config_file: /etc/netplan/50-ansible.yaml   
+    netplan_renderer: networkd
+    netplan_configuration:
+      network:
+        version: 2
+        renderer: networkd
+        ethernets:
+          enp0s3:
+            dhcp4: true
+            # dhcp4-overrides:
+            #   use-dns: no
+          enp0s8:
+            addresses:
+            - "{{ IP_interna_cli }}"
+            gateway4: "{{ GW }}"
+    netplan_apply: true
+

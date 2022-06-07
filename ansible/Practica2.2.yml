@@ -1,0 +1,77 @@
+- name: Comprobar variables
+  hosts: clientes:servidor3
+  tasks:
+  - debug: 
+      var: hostvars[inventory_hostname].ansible_enp0s8.macaddress
+
+- name: Configuración de servidor2 (DHCP-RELAY)
+  hosts: servidor2
+  become: true
+  pre_tasks:
+    - name: Cargar las variables adecuadas
+      include_vars: servidor2.yaml
+  vars:
+    isc_dhcp_relay_interfaces:
+      - 'enp0s8'
+      - 'enp0s9'
+    isc_dhcp_relay_options: 
+      - "-D"
+    isc_dhcp_relay_servers:
+    - "{{ GW }}"
+  roles:
+    - role: ansible-isc-dhcp-relay
+      notify:
+        - Parar servidor DHCP y dejar sólo el relay en servidor2
+  post_tasks:
+      - name: Parar servidor DHCP de servidor2
+        become: yes
+        systemd:
+          name: isc-dhcp-server
+          state: stopped
+
+- name: Configuración de servidor1 (DHCP)
+  hosts: servidor1
+  pre_tasks:
+    - name: Cargar las variables adecuadas
+      include_vars: group_vars/servidores.yaml
+  roles:  
+  - role: ansible-role-dhcp 
+    vars:    
+    dhcp_interfaces: enp0s8 enp0s9
+    dhcp_subnets:    
+    - ip: "{{ Red_interna_serv1 }}"
+      netmask: "{{ Mask_serv1 }}"
+      range_begin: "{{ Rango_dhcp_inicio_serv1 }}"
+      range_end: "{{ Rango_dhcp_final_serv1 }}"
+      routers: "{{ Gateway_dhcp_serv1 }}"
+      domain_name_servers: "{{ Gateway_dhcp_serv1 }}"
+      domain_search: "{{ Dominio_1 }}"
+    - ip: "{{ Red_interna_serv2 }}"
+      netmask: "{{ Mask_serv2 }}"
+      range_begin: "{{ Rango_dhcp_inicio_serv2 }}"
+      range_end: "{{ Rango_dhcp_final_serv2 }}"
+      routers: "{{ Gateway_dhcp_serv2 }}"
+      domain_name_servers: "{{ Gateway_dhcp_serv2 }}"
+      domain_search: "{{ Dominio_2 }}"
+    - ip: "{{ Red_LAN}}"
+      netmask: "{{ Mask_LAN }}"
+    dhcp_hosts:
+    - name: "{{ Cliente_serv1 }}"
+      mac: "{{ Mac_cliente_serv1 }}"
+      ip: "{{ IP_fija_dhcp_serv1 }}"
+    - name: "{{ Cliente_serv2 }}"
+      mac: "{{ Mac_cliente_serv2 }}"
+      ip: "{{ IP_fija_dhcp_serv2 }}" 
+    - name: "{{ Cliente3 }}"
+      mac: "{{ Mac_cliente3 }}"
+      ip: "{{ IP_fija_dhcp_cliente3 }}" 
+    - name: "{{ Cliente_serv3 }}"
+      mac: "{{ Mac_serv3 }}"
+      ip: "{{ IP_fija_dhcp_serv3 }}" 
+    become: yes
+
+- name: Reiniciar netplan
+  hosts: clientes
+  become: yes
+  tasks:
+    - command: netplan apply

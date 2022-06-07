@@ -1,0 +1,48 @@
+
+{% if balanceo is defined %}
+    upstream backend_hosts {
+                random;
+                server {{ balanceo1 }}:{{ port_balanceo }};
+                server {{ balanceo2 }}:{{ port_balanceo }};
+    }
+{% endif %}
+     
+
+server {
+ 
+  listen {{ port }};
+ 
+  {% if rev_proxy is not defined %}
+  root {{ document_root }}/{{ app_root }};
+  index index.html index.htm;
+  {% endif %}
+
+  server_name {{ server_name }};
+
+  location / {
+   {% if rev_proxy is defined %}
+   proxy_pass http://webserver1;
+   add_header Host "{{ host_header }}";
+   {% elif webserver is defined%}
+   add_header Host "{{ host_header }}";
+   try_files $uri.html $uri $uri/ =404;
+   {% endif %}
+   {% if rev_proxy is defined %}
+   proxy_pass httt://backend_hosts;
+   {% endif %}
+  }
+
+  {% if basic_auth is defined %}
+   location /portofolio.html {    
+    auth_basic  "Àrea restringida";
+    auth_basic_user_file    /etc/nginx/.htpasswd;
+    {% if restr_IP is defined %}
+    satisfy all;
+    allow 172.1.1.11;
+    deny all;
+    {% endif %}
+   default_type "text/html";
+   try_files $uri.html $uri $uri/ =404;
+  }
+  {% endif %}
+}

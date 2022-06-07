@@ -1,0 +1,59 @@
+- hosts: servidor3
+  ##TODO: ELIMINAR LA RUTA POR DEFECTO A 172.1.1.1, sino no tendrá acceso a internet y no se ejecutará el playbook
+  become: yes
+  pre_tasks:  
+    - name: Cargar las configuración adecuada para servidor3
+      include_vars: servidor3.yaml
+  tasks:
+    - name: Actualizar apt cache e instalar Nginx
+      apt:
+        name: nginx
+        state: latest
+        update_cache: yes
+
+    - name: Aplicar las plantillas de Nginx
+      vars:
+        #basic_auth: False
+        #restr_IP: True
+        rev_proxy: True
+        host_header: Proxy_inverso_Raúl
+        port: 80
+        server_name: jugador1
+      template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/default
+      notify: Restart Nginx
+
+    - name: Habilitar el nuevo website
+      file:
+        src: /etc/nginx/sites-available/default
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+      notify: Restart Nginx
+    
+  handlers:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+
+- hosts: servidor1
+  become: True
+  tasks:
+    - name: Aplicar las plantillas de Nginx
+      vars:
+        webserver: True
+        host_header: Webserver1
+        port: 80
+        server_name: webserver1
+        document_root: /var/www
+        app_root: jugador2
+      template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/default
+      notify: Restart Nginx
+  handlers:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
